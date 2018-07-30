@@ -37,6 +37,7 @@ Game.Map.prototype.getTile = function(x, y) {
         return this._tiles[x][y] || Game.Tile.nullTile;
     }
 };
+
 /*
 Game.Map.prototype.dig = function(x, y) {
     // If the tile is diggable, update it to a floor
@@ -114,3 +115,20 @@ Game.Map.prototype.removeEntity = function(entity) {
         this._scheduler.remove(entity);
     }
 };
+
+Game.Map.prototype.getEntitiesWithinRadius = function(centerX, centerY, radius) {
+    results = [];
+    //determine bounds
+    var leftX = centerX - radius;
+    var rightX = centerX + radius;
+    var topY = centerY - radius;
+    var bottomY = centerY + radius;
+    //iterate through entities adding to array those within these bounds
+    for (let i = 0; i < this._entities.length; i++) {
+        if (this._entities[i].getX() >= leftX && this._entities[i].getX() <= rightX &&
+            this._entities[i].getY() >= topY && this._entities[i].getY() <= bottomY) {
+            results.push(this._entities[i]);
+        }
+    }
+    return results;
+}

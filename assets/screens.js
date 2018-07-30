@@ -100,7 +100,21 @@ Game.Screen.playScreen = {
                 );
             }
         }
-
+        //get messages in player queue and render them
+        var messages = this._player.getMessages();
+        var messageY = 0;
+        for (let i = 0; i < messages.length; i++) {
+            //draw message text, adding numver of lones
+            messageY += display.drawText(
+                0,
+                messageY,
+                '%c{white}%b{black}' + messages[i]
+            );
+        }
+        //render player stats
+        var stats = '%c{white}%b{black}';
+        stats += vsprintf('Health: %d/%d', [this._player.getHp(), this._player.getMaxHp()]);
+        display.drawText(0, screenHeight, stats);
     },
     handleInput: function(inputType, inputData) {
         if (inputType === 'keydown') {
@@ -123,7 +137,7 @@ Game.Screen.playScreen = {
                 }
                 //unlock engine
                 this._map.getEngine().unlock();
-                Game.refresh();
+                //Game.refresh();
             }
         }
     },
