@@ -1,4 +1,4 @@
-//creates the pictographs for the game entities
+//creates  pictographs for the game entities
 Game.Glyph = function(properties) {
     properties = properties || {};
     this._char = properties['character'] || ' ';
@@ -6,13 +6,12 @@ Game.Glyph = function(properties) {
     this._background = properties['background'] || 'black';
 };
 
-// Accessors
 Game.Glyph.prototype.getChar = function() {
     return this._char;
-}
+};
 Game.Glyph.prototype.getBackground = function() {
     return this._background;
-}
+};
 Game.Glyph.prototype.getForeground = function() {
     return this._foreground;
-}
+};

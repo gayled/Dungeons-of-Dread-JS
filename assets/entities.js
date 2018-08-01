@@ -1,37 +1,46 @@
-// Create our Mixins namespace
+// Create Mixins namespace
 Game.Mixins = {};
 
-// Define our Moveable mixin
+// Define Moveable mixin
 Game.Mixins.Moveable = {
-        name: 'Moveable',
-        tryMove: function(x, y, map) {
-                var tile = map.getTile(x, y);
-                var target = map.getEntityAt(x, y);
-                //if entity occupies the position, can't move there
-                if (target) {
-                    //if attacker, try to attack target
-                    if (this.hasMixin('Attacker')) {
-                        this.attack(target);
-                        return true;
-                    } else {
-                        //do nothing
-                        return false;
-                    }
-                } else if (tile.isWalkable()) {
-                    // Update the entity's position
-                    this._x = x;
-                    this._y = y;
-                    return true;
-                    // Check if the tile is diggable, and
-                    // if so try to dig it
-                }
-                return false; //else { //if (tile.isDiggable()) {
-                //map.dig(x, y);
-                //return false; //true;
+    name: 'Moveable',
+    tryMove: function(x, y, z, map) {
+        var map = this.getMap();
+        var tile = map.getTile(x, y, this.getZ());
+        var target = map.getEntityAt(x, y, this.getZ());
+        //if z level changed check if on stairs
+        if (z < this.getZ()) {
+            if (tile != Game.Tile.stairsUpTile) {
+                Game.sendMessage(this, "You can't go up here!");
+            } else {
+                Game.sendMessage(this, "You're going up to level %d", [z + 1]);
+                this.setPosition(x, y, z);
             }
-            //return false;
+        } else if (z > this.getZ()) {
+            if (tile != Game.Tile.stairsDownTile) {
+                Game.sendMessage(this, "You can't go down here!");
+            } else {
+                Game.sendMessage(this, "You're going down to level %d", [z + 1]);
+                this.setPosition(x, y, z);
+            }
+            //if an entity occupies the position, can't move there
+        } else if (target) {
+            //if attacker, try to attack target
+            if (this.hasMixin('Attacker')) {
+                this.attack(target);
+                return true;
+            } else {
+                //do nothing
+                return false;
+            }
+        } else if (tile.isWalkable()) {
+            // Update the entity's position
+            this.setPosition(x, y, z);
+            return true;
+        }
+        return false;
     }
-    //}
+};
 
 Game.Mixins.Destructible = {
     name: 'Destructible',
@@ -52,14 +61,14 @@ Game.Mixins.Destructible = {
     },
     takeDamage: function(attacker, damage) {
         this._hp -= damage;
-        //if 0 or less remove from game
+        //if 0 or less remove from map
         if (this._hp <= 0) {
             Game.sendMessage(attacker, 'You kill the %s!', [this.getName()]);
             Game.sendMessage(this, 'You die!');
             this.getMap().removeEntity(this);
         }
     }
-}
+};
 
 Game.Mixins.Attacker = {
     name: 'Attacker',
@@ -76,14 +85,13 @@ Game.Mixins.Attacker = {
             var attack = this.getAttackValue();
             var defense = target.getDefenseValue();
             var max = Math.max(0, attack - defense);
-            //target.takeDamage(this, 1 + Math.floor(Math.random() * max));
             var damage = 1 + Math.floor(Math.random() * max);
             Game.sendMessage(this, 'You attack the %s for %d damage!', [target.getName(), damage]);
             Game.sendMessage(target, 'The %s attacks you for %d damage!', [this.getName(), damage]);
             target.takeDamage(this, damage);
         }
     }
-}
+};
 
 Game.Mixins.PlayerActor = {
     name: 'PlayerActor',
@@ -96,7 +104,7 @@ Game.Mixins.PlayerActor = {
         //clear message queue
         this.clearMessages();
     }
-}
+};
 
 Game.Mixins.PythonActor = {
     name: 'PythonActor',
@@ -114,14 +122,15 @@ Game.Mixins.PythonActor = {
                 if (xOffset != 0 || yOffset != 0) {
                     //check if python can grow into that position
                     if (this.getMap().isEmptyFloor(this.getX() + xOffset,
-                            this.getY() + yOffset)) {
+                            this.getY() + yOffset, this.getZ())) {
                         var entity = new Game.Entity(Game.PythonTemplate);
-                        entity.setX(this.getX() + xOffset);
-                        entity.setY(this.getY() + yOffset);
+                        entity.setPosition(this.getX() + xOffset,
+                            this.getY() + yOffset, this.getZ());
                         this.getMap().addEntity(entity);
                         this._growthsRemaining--;
                         //send message to nearby entities
                         Game.sendMessageNearby(this.getMap(), entity.getX(), entity.getY(),
+                            entity.getZ(),
                             'The python is growing!');
 
                     }
@@ -129,7 +138,7 @@ Game.Mixins.PythonActor = {
             }
         }
     }
-}
+};
 
 Game.Mixins.MessageRecipient = {
     name: 'MessageRecipient',
@@ -145,7 +154,7 @@ Game.Mixins.MessageRecipient = {
     clearMessages: function() {
         this._messages = [];
     }
-}
+};
 
 Game.sendMessage = function(recipient, message, args) {
     //check if recipient can receive message
@@ -156,22 +165,22 @@ Game.sendMessage = function(recipient, message, args) {
         }
         recipient.receiveMessage(message);
     }
-}
+};
 
-Game.sendMessageNearby = function(map, centerX, centerY, message, args) {
+Game.sendMessageNearby = function(map, centerX, centerY, centerZ, message, args) {
     //if args, format the message
     if (args) {
         message = vsprintf(message, args);
     }
-    //get nearby entitites
-    entities = map.getEntitiesWithinRadius(centerX, centerY, 5);
-    //iterate through the entities array, sending it to those who can receive it
+    //get nearby entities
+    entities = map.getEntitiesWithinRadius(centerX, centerY, centerZ, 5);
+    //iterate through the entities array, sending the message to those who can receive it
     for (let i = 0; i < entities.length; i++) {
         if (entities[i].hasMixin(Game.Mixins.MessageRecipient)) {
             entities[i].receiveMessage(message);
         }
     }
-}
+};
 
 // Player template
 Game.PlayerTemplate = {
@@ -183,7 +192,7 @@ Game.PlayerTemplate = {
     mixins: [Game.Mixins.Moveable, Game.Mixins.PlayerActor,
         Game.Mixins.Attacker, Game.Mixins.Destructible, Game.Mixins.MessageRecipient
     ]
-}
+};
 
 //Python template
 Game.PythonTemplate = {
@@ -192,4 +201,4 @@ Game.PythonTemplate = {
     foreground: 'green',
     maxHp: 10,
     mixins: [Game.Mixins.PythonActor, Game.Mixins.Destructible]
-}
+};

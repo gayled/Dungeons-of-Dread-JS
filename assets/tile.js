@@ -1,30 +1,47 @@
 Game.Tile = function(properties) {
     properties = properties || {};
-    // Call the Glyph constructor with our properties
+    // Call the Glyph constructor 
     Game.Glyph.call(this, properties);
-    // Set up the properties. We use false by default.
+    // Set properties
     this._isWalkable = properties['isWalkable'] || false;
-    //this._isDiggable = properties['isDiggable'] || false;
 };
-// Make tiles inherit all the functionality from glyphs
+// tiles inherit glyph functionality
 Game.Tile.extend(Game.Glyph);
 
-// Standard getters
 Game.Tile.prototype.isWalkable = function() {
-        return this._isWalkable;
+    return this._isWalkable;
+};
+
+Game.getNeighborPositions = function(x, y) {
+    var tiles = [];
+    //generate all 8 offsets
+    for (let dX = -1; dX < 2; dX++) {
+        for (let dY = -1; dY < 2; dY++) {
+            if (dX == 0 && dY == 0) {
+                continue;
+            }
+            tiles.push({ x: x + dX, y: y + dY });
+        }
     }
-    /*
-    Game.Tile.prototype.isDiggable = function() {
-        return this._isDiggable;
-    }
-    */
-Game.Tile.nullTile = new Game.Tile({})
+    return tiles.randomize(); //so top left isn't favored
+};
+
+Game.Tile.nullTile = new Game.Tile({});
 Game.Tile.floorTile = new Game.Tile({
     character: '.',
     isWalkable: true
 });
 Game.Tile.wallTile = new Game.Tile({
     character: '#',
-    foreground: 'goldenrod',
-    //isDiggable: true
+    foreground: 'goldenrod'
+});
+Game.Tile.stairsUpTile = new Game.Tile({
+    character: '<',
+    foreground: 'white',
+    isWalkable: true
+});
+Game.Tile.stairsDownTile = new Game.Tile({
+    character: '>',
+    foreground: 'white',
+    isWalkable: true
 });

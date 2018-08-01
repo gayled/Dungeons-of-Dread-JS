@@ -4,14 +4,13 @@ var Game = {
     _screenWidth: 80,
     _screenHeight: 24,
     init: function() {
-        // Any necessary initialization will go here.
+        // initialize game display
         this._display = new ROT.Display({
             width: this._screenWidth,
-            height: this._screenHeight + 1 //add 1 to display states
+            height: this._screenHeight + 1 //add 1 for displaying stats
         });
-        // Create a helper function for binding to an event
-        // and making it send it to the screen
-        var game = this; // So that we don't lose this
+        var game = this;
+        //helper function for binding events to current screen
         var bindEventToScreen = function(event) {
             window.addEventListener(event, function(e) {
                 // When an event is received, send it to the
@@ -19,17 +18,12 @@ var Game = {
                 if (game._currentScreen !== null) {
                     // Send the event type and data to the screen
                     game._currentScreen.handleInput(event, e);
-                    // Clear the screen
-                    //game._display.clear();
-                    // Render the screen
-                    //game._currentScreen.render(game._display);
                 }
             });
         };
-        // Bind keyboard input events
+        // Bind keypress event
         bindEventToScreen('keydown');
-        //bindEventToScreen('keyup');
-        //bindEventToScreen('keypress');
+        bindEventToScreen('keypress');
     },
     getDisplay: function() {
         return this._display;
@@ -44,37 +38,36 @@ var Game = {
     refresh: function() {
         //clear the screen
         this._display.clear();
-        //render the screen
+        //re-render the screen
         this._currentScreen.render(this._display);
     },
 
     switchScreen: function(screen) {
-        // If we had a screen before, notify it that we exited
+        // if exists, exit current screen
         if (this._currentScreen !== null) {
             this._currentScreen.exit();
         }
         // Clear the display
         this.getDisplay().clear();
-        // Update our current screen, notify it we entered
-        // and then render it
+        // Update our current screen from parameter and render it
         this._currentScreen = screen;
         if (!this._currentScreen !== null) {
             this._currentScreen.enter();
             this.refresh();
         }
     }
-}
+};
 
 window.onload = function() {
-    // Check if rot.js can work on this browser
+    // Check if rot.js can work in this browser
     if (!ROT.isSupported()) {
         alert("The rot.js library isn't supported by your browser.");
     } else {
         // Initialize the game
         Game.init();
-        // Add the container to our HTML page
+        // Add the ROT container to index.html
         document.body.appendChild(Game.getDisplay().getContainer());
         // Load the start screen
         Game.switchScreen(Game.Screen.startScreen);
     }
-}
+};
