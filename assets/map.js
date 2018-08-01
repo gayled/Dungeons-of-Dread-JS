@@ -1,11 +1,11 @@
 Game.Map = function(tiles, player) {
     this._tiles = tiles;
-    // cache the width and height based
-    // on the length of the dimensions of
-    // the tiles array
     this._depth = tiles.length;
     this._width = tiles[0].length;
     this._height = tiles[0][0].length;
+    //set up field of vision
+    this._fov = [];
+    this.setupFov();
     //array to hold entities
     this._entities = [];
     //create the ROT engine and scheduler
@@ -21,7 +21,6 @@ Game.Map = function(tiles, player) {
     }
 };
 
-// getters
 Game.Map.prototype.getWidth = function() {
     return this._width;
 };
@@ -34,10 +33,9 @@ Game.Map.prototype.getDepth = function() {
     return this._depth;
 };
 
-// Gets the tile for a given coordinate set
+// Gets the tile for given coordinates
 Game.Map.prototype.getTile = function(x, y, z) {
-    // Make sure we are inside the bounds. If we aren't, return
-    // null tile.
+    // if not in bounds return nullTile
     if (x < 0 || x >= this._width || y < 0 || y >= this._height ||
         z < 0 || z >= this._depth) {
         return Game.Tile.nullTile;
@@ -136,4 +134,25 @@ Game.Map.prototype.getEntitiesWithinRadius = function(centerX, centerY, centerZ,
         }
     }
     return results;
+};
+
+Game.Map.prototype.setupFov = function() {
+    // so dno't lose this
+    var map = this;
+    // set up FOV at each depth
+    for (var z = 0; z < this._depth; z++) {
+        // use iife to prevent hoisting out of loop
+        (function() {
+            // callback ensures tile isn't blocking light
+            var depth = z;
+            map._fov.push(
+                new ROT.FOV.DiscreteShadowcasting(function(x, y) {
+                    return !map.getTile(x, y, depth).isBlockingLight();
+                }, { topology: 4 })); //FOV is triangular
+        })();
+    }
+};
+
+Game.Map.prototype.getFov = function(depth) {
+    return this._fov[depth];
 };

@@ -29,31 +29,10 @@ Game.Screen.playScreen = {
         var width = 100;
         var height = 48;
         var depth = 3;
-        //create map
+        //create tiles for map
         var tiles = new Game.Builder(width, height, depth).getTiles();
-
-        /*for (let x = 0; x < mapWidth; x++) {
-            // Create the nested array for the y values
-            map.push([]);
-            // initialize with null tiles
-            for (let y = 0; y < mapHeight; y++) {
-                map[x].push(Game.Tile.nullTile);
-            }
-        }
-         Generate map with floor and wall tiles
-        var generator = new ROT.Map.Uniform(mapWidth, mapHeight, { timeLimit: 5000 });
-
-        generator.create(function(x, y, v) {
-            if (v === 0) {
-                map[x][y] = Game.Tile.floorTile;
-            } else {
-                map[x][y] = Game.Tile.wallTile;
-            }
-        });
-        */
-        // Create player and start game engine
+        // Create player and map  and start game engine
         this._player = new Game.Entity(Game.PlayerTemplate);
-        // Create our map from the tiles
         this._map = new Game.Map(tiles, this._player);
         this._map.getEngine().start();
     },
@@ -61,58 +40,72 @@ Game.Screen.playScreen = {
     render: function(display) {
         var screenWidth = Game.getScreenWidth();
         var screenHeight = Game.getScreenHeight();
-        // Make sure the x-axis doesn't go to the left of the left bound
+        // keep x axis within left bound
         var topLeftX = Math.max(0, this._player.getX() - (screenWidth / 2));
-        // Make there's enough space to fit the game screen
+        // and have enough space to fill screen
         topLeftX = Math.min(topLeftX, this._map.getWidth() - screenWidth);
-        // Make sure the y-axis doesn't go above the top bound
+        // Make sure the y-axis within top bound
         var topLeftY = Math.max(0, this._player.getY() - (screenHeight / 2));
-        // Make sure there's enough space to fit the game screen
+        // and have enough space to fill screen
         topLeftY = Math.min(topLeftY, this._map.getHeight() - screenHeight);
+        // This object holds visible cells
+        var visibleCells = {};
+        // Find all visible cells centered on player and update visibleCells
+        this._map.getFov(this._player.getZ()).compute(
+            this._player.getX(), this._player.getY(),
+            this._player.getSightRadius(),
+            function(x, y, radius, visibility) {
+                visibleCells[x + "," + y] = true;
+            });
         // Iterate through all visible map cells
-        for (let x = topLeftX; x < topLeftX + screenWidth; x++) {
-            for (let y = topLeftY; y < topLeftY + screenHeight; y++) {
-                // Fetch tile glyphs and render at the offset position
-                var tile = this._map.getTile(x, y, this._player.getZ());
-                display.draw(
-                    x - topLeftX,
-                    y - topLeftY,
-                    tile.getChar(),
-                    tile.getForeground(),
-                    tile.getBackground());
+        for (var x = topLeftX; x < topLeftX + screenWidth; x++) {
+            for (var y = topLeftY; y < topLeftY + screenHeight; y++) {
+                if (visibleCells[x + ',' + y]) {
+                    // render glyph to screen at offset
+                    var tile = this._map.getTile(x, y, this._player.getZ());
+                    display.draw(
+                        x - topLeftX,
+                        y - topLeftY,
+                        tile.getChar(),
+                        tile.getForeground(),
+                        tile.getBackground());
+                }
             }
         }
-        // Render game entities
+        // Render the entities
         var entities = this._map.getEntities();
-        for (let i = 0; i < entities.length; i++) {
+        for (var i = 0; i < entities.length; i++) {
             var entity = entities[i];
-            //render only if entity is on screen
+            // Only render entities that show on screen
             if (entity.getX() >= topLeftX && entity.getY() >= topLeftY &&
-                entity.getX() < topLeftX + screenWidth && entity.getY() < topLeftY + screenHeight &&
+                entity.getX() < topLeftX + screenWidth &&
+                entity.getY() < topLeftY + screenHeight &&
                 entity.getZ() == this._player.getZ()) {
-                display.draw(
-                    entity.getX() - topLeftX,
-                    entity.getY() - topLeftY,
-                    entity.getChar(),
-                    entity.getForeground(),
-                    entity.getBackground()
-                );
+                if (visibleCells[entity.getX() + ',' + entity.getY()]) {
+                    display.draw(
+                        entity.getX() - topLeftX,
+                        entity.getY() - topLeftY,
+                        entity.getChar(),
+                        entity.getForeground(),
+                        entity.getBackground()
+                    );
+                }
             }
         }
-        //get messages in player queue and render 
+        // Get the messages in the player's queue and render them
         var messages = this._player.getMessages();
         var messageY = 0;
-        for (let i = 0; i < messages.length; i++) {
-            //draw message text at top left of screen
+        for (var i = 0; i < messages.length; i++) {
+            // Draw each message, adding the number of lines
             messageY += display.drawText(
                 0,
                 messageY,
                 '%c{white}%b{black}' + messages[i]
             );
         }
-        //render player stats at bottom left of screen
+        // Render player HP 
         var stats = '%c{white}%b{black}';
-        stats += vsprintf('Health: %d/%d', [this._player.getHp(), this._player.getMaxHp()]);
+        stats += vsprintf('HP: %d/%d ', [this._player.getHp(), this._player.getMaxHp()]);
         display.drawText(0, screenHeight, stats);
     },
     handleInput: function(inputType, inputData) {

@@ -93,6 +93,17 @@ Game.Mixins.Attacker = {
     }
 };
 
+Game.Mixins.Sight = {
+    name: 'Sight',
+    groupName: 'Sight',
+    init: function(template) {
+        this._sightRadius = template['sightRadius'] || 5;
+    },
+    getSightRadius: function() {
+        return this._sightRadius;
+    }
+};
+
 Game.Mixins.PlayerActor = {
     name: 'PlayerActor',
     groupName: 'Actor',
@@ -186,11 +197,12 @@ Game.sendMessageNearby = function(map, centerX, centerY, centerZ, message, args)
 Game.PlayerTemplate = {
     character: '@',
     foreground: 'white',
-    background: 'black',
-    maxHp: 100,
-    attackValue: 25,
+    maxHp: 40,
+    attackValue: 10,
+    sightRadius: 6,
     mixins: [Game.Mixins.Moveable, Game.Mixins.PlayerActor,
-        Game.Mixins.Attacker, Game.Mixins.Destructible, Game.Mixins.MessageRecipient
+        Game.Mixins.Attacker, Game.Mixins.Destructible,
+        Game.Mixins.Sight, Game.Mixins.MessageRecipient
     ]
 };
 
