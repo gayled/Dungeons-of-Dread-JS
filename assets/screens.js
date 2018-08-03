@@ -50,24 +50,32 @@ Game.Screen.playScreen = {
         topLeftY = Math.min(topLeftY, this._map.getHeight() - screenHeight);
         // This object holds visible cells
         var visibleCells = {};
+        //store map and player z coordinate to persist through callbacks
+        var map = this._map;
+        var currentDepth = this._player.getZ();
         // Find all visible cells centered on player and update visibleCells
-        this._map.getFov(this._player.getZ()).compute(
+        map.getFov(currentDepth).compute(
             this._player.getX(), this._player.getY(),
             this._player.getSightRadius(),
             function(x, y, radius, visibility) {
                 visibleCells[x + "," + y] = true;
+                //mark cell as explored
+                map.setExplored(x, y, currentDepth, true);
             });
         // Iterate through all visible map cells
         for (var x = topLeftX; x < topLeftX + screenWidth; x++) {
             for (var y = topLeftY; y < topLeftY + screenHeight; y++) {
-                if (visibleCells[x + ',' + y]) {
+                if (map.isExplored(x, y, currentDepth)) {
                     // render glyph to screen at offset
-                    var tile = this._map.getTile(x, y, this._player.getZ());
+                    var tile = this._map.getTile(x, y, currentDepth);
+                    //foreground of explored tiles become dark gray
+                    var foreground = visibleCells[x + ',' + y] ?
+                        tile.getForeground() : 'darkGray';
                     display.draw(
                         x - topLeftX,
                         y - topLeftY,
                         tile.getChar(),
-                        tile.getForeground(),
+                        foreground,
                         tile.getBackground());
                 }
             }

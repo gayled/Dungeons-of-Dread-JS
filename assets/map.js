@@ -19,6 +19,9 @@ Game.Map = function(tiles, player) {
             this.addEntityAtRandomPosition(new Game.Entity(Game.PythonTemplate), z);
         }
     }
+    //holds part of map that's been explored
+    this._explored = new Array(this._depth);
+    this._setupExploredArray();
 };
 
 Game.Map.prototype.getWidth = function() {
@@ -155,4 +158,34 @@ Game.Map.prototype.setupFov = function() {
 
 Game.Map.prototype.getFov = function(depth) {
     return this._fov[depth];
+};
+
+Game.Map.prototype._setupExploredArray = function() {
+    for (let z = 0; z < this._depth; z++) {
+        this._explored[z] = new Array(this._width);
+        for (let x = 0; x < this._width; x++) {
+            this._explored[z][x] = new Array(this._height);
+            for (let y = 0; y < this._height; y++) {
+                this._explored[z][x][y] = false;
+            }
+        }
+    }
+};
+
+//updates the explored state for a given tile
+Game.Map.prototype.setExplored = function(x, y, z, state) {
+    //only return if within bounds
+    if (this.getTile(x, y, z) !== Game.Tile.nullTile) {
+        return this._explored[z][x][y] = state;
+    }
+};
+
+//checks if explored
+Game.Map.prototype.isExplored = function(x, y, z) {
+    //only return if within bounds
+    if (this.getTile(x, y, z) !== Game.Tile.nullTile) {
+        return this._explored[z][x][y];
+    } else {
+        return false;
+    }
 };
