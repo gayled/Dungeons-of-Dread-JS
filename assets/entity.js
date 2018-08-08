@@ -14,7 +14,7 @@ Game.Entity = function(properties) {
     this._attachedMixinGroups = {};
     // Contains the entity's mixins
     var mixins = properties['mixins'] || [];
-    for (let i = 0; i < mixins.length; i++) {
+    for (var i = 0; i < mixins.length; i++) {
         // Copy over all properties from each mixin as long
         // as it's not the name or the init property.
         // also make sure not to override a property that
@@ -64,14 +64,22 @@ Game.Entity.prototype.setZ = function(z) {
     this._z = z;
 };
 
+Game.Entity.prototype.setMap = function(map) {
+    this._map = map;
+};
+
 Game.Entity.prototype.setPosition = function(x, y, z) {
+    var oldX = this._x;
+    var oldY = this._y;
+    var oldZ = this._z;
+    //update position
     this._x = x;
     this._y = y;
     this._z = z;
-};
-
-Game.Entity.prototype.setMap = function(map) {
-    this._map = map;
+    //if entity on map, notify that entity has moved
+    if (this._map) {
+        this._map.updateEntityPosition(this, oldX, oldY, oldZ);
+    }
 };
 
 Game.Entity.prototype.getName = function() {
@@ -92,4 +100,51 @@ Game.Entity.prototype.getZ = function() {
 
 Game.Entity.prototype.getMap = function() {
     return this._map;
+};
+
+Game.Entity.prototype.tryMove = function(x, y, z, map) {
+    var map = this.getMap();
+    //use starting depth
+    var tile = map.getTile(x, y, this.getZ());
+    var target = map.getEntityAt(x, y, this.getZ());
+    //check if on stairs
+    if (z < this.getZ()) {
+        if (tile != Game.Tile.stairsUpTile) {
+            Game.sendMessage(this, "You can't go up there!");
+        } else {
+            this.setPosition(x, y, z);
+            Game.sendMessage(this, "You go up to level %d", [z + 1]);
+        }
+    } else if (z > this.getZ()) {
+        if (tile != Game.Tile.stairDownTile) {
+            Game.sendMessage(this, "You can't go down there!");
+        } else {
+            this.setPosition(x, y, z);
+            Game.sendMessage(this, "You go down to level %d", [z + 1]);
+        }
+    } else if (target) {
+        //if attacker try to attack target
+        if (this.hasMixin('Attacker') &&
+            (this.hasMixin(Game.Mixins.PlayerActor) ||
+                target.hasMixin(Game.Mixins.PlayerActor))) {
+            this.attack(target);
+            return true;
+        }
+        //do nothing
+        return false;
+    } else if (tile.isWalkable()) {
+        //update position
+        this.setPosition(x, y, z);
+        //notify if items at this position
+        var items = this.getMap().getItemsAt(x, y, z);
+        if (items) {
+            if (items.length === 1) {
+                Game.sendMessage(this, "You see %s.", [items[0].describeA()]);
+            } else {
+                Game.sendMessage(this, "There are several items here!");
+            }
+        }
+        return true;
+    }
+    return false;
 };

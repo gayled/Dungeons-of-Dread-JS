@@ -1,47 +1,6 @@
 // Create Mixins namespace
 Game.Mixins = {};
 
-// Define Moveable mixin
-Game.Mixins.Moveable = {
-    name: 'Moveable',
-    tryMove: function(x, y, z, map) {
-        var map = this.getMap();
-        var tile = map.getTile(x, y, this.getZ());
-        var target = map.getEntityAt(x, y, this.getZ());
-        //if z level changed check if on stairs
-        if (z < this.getZ()) {
-            if (tile != Game.Tile.stairsUpTile) {
-                Game.sendMessage(this, "You can't go up here!");
-            } else {
-                Game.sendMessage(this, "You're going up to level %d", [z + 1]);
-                this.setPosition(x, y, z);
-            }
-        } else if (z > this.getZ()) {
-            if (tile != Game.Tile.stairsDownTile) {
-                Game.sendMessage(this, "You can't go down here!");
-            } else {
-                Game.sendMessage(this, "You're going down to level %d", [z + 1]);
-                this.setPosition(x, y, z);
-            }
-            //if an entity occupies the position, can't move there
-        } else if (target) {
-            //if attacker, try to attack target
-            if (this.hasMixin('Attacker')) {
-                this.attack(target);
-                return true;
-            } else {
-                //do nothing
-                return false;
-            }
-        } else if (tile.isWalkable()) {
-            // Update the entity's position
-            this.setPosition(x, y, z);
-            return true;
-        }
-        return false;
-    }
-};
-
 Game.Mixins.Destructible = {
     name: 'Destructible',
     init: function(template) {
@@ -64,8 +23,12 @@ Game.Mixins.Destructible = {
         //if 0 or less remove from map
         if (this._hp <= 0) {
             Game.sendMessage(attacker, 'You kill the %s!', [this.getName()]);
-            Game.sendMessage(this, 'You die!');
-            this.getMap().removeEntity(this);
+            //check if player died
+            if (this.hasMixin(Game.Mixins.PlayerActor)) {
+                this.act();
+            } else {
+                this.getMap().removeEntity(this);
+            }
         }
     }
 };
@@ -108,6 +71,12 @@ Game.Mixins.PlayerActor = {
     name: 'PlayerActor',
     groupName: 'Actor',
     act: function() {
+        //detect if game is over
+        if (this.getHp() < 1) {
+            Game.Screen.playScreen.setGameEnded(true);
+            //send message that player has lost
+            Game.sendMessage(this, 'You have been killed....Press [Enter] to continue!');
+        }
         //re-render the screen
         Game.refresh();
         //lock engine until player completes turn (presses a key)
@@ -134,7 +103,7 @@ Game.Mixins.PythonActor = {
                     //check if python can grow into that position
                     if (this.getMap().isEmptyFloor(this.getX() + xOffset,
                             this.getY() + yOffset, this.getZ())) {
-                        var entity = new Game.Entity(Game.PythonTemplate);
+                        var entity = Game.EntityRepository.create('python');
                         entity.setPosition(this.getX() + xOffset,
                             this.getY() + yOffset, this.getZ());
                         this.getMap().addEntity(entity);
@@ -147,6 +116,21 @@ Game.Mixins.PythonActor = {
                     }
                 }
             }
+        }
+    }
+};
+
+Game.Mixins.WanderActor = {
+    name: 'WanderActor',
+    groupName: 'Actor',
+    act: function() {
+        //two outcomes determine positive or negative direction
+        var moveOffset = (Math.round(Math.random()) === 1) ? 1 : -1;
+        //two outcomes determine moving in x or y direction
+        if (Math.round(Math.random()) === 1) {
+            this.tryMove(this.getX() + moveOffset, this.getY(), this.getZ());
+        } else {
+            this.tryMove(this.getX(), this.getY() + moveOffset, this.getZ());
         }
     }
 };
@@ -193,6 +177,70 @@ Game.sendMessageNearby = function(map, centerX, centerY, centerZ, message, args)
     }
 };
 
+Game.Mixins.InventoryHolder = {
+    name: 'InventoryHolder',
+    init: function(template) {
+        //10 slots is default
+        var inventorySlots = template['inventorySlots'] || 10;
+        //initialize inventory
+        this._items = new Array(inventorySlots);
+    },
+    getItems: function() {
+        return this._items;
+    },
+    getItem: function(i) {
+        return this._items[i];
+    },
+    addItem: function(item) {
+        //retrun true if space for item
+        for (let i = 0; i < this._items.length; i++) {
+            if (!this._items[i]) {
+                this._items[i] = item;
+                return true;
+            }
+        }
+        return false;
+    },
+    removeItem: function(i) {
+        this._items[i] = null;
+    },
+    canAddItem: function() {
+        //check for empty slot
+        for (var i = 0; i < this._items.length; i++) {
+            if (!this._items[i]) {
+                return true;
+            }
+        }
+        return false;
+    },
+    pickupItems: function(indices) {
+        var mapItems = this._map.getItemsAt(this.getX(), this.getY(), this.getZ());
+        var added = 0;
+        for (let i = 0; i < indices.length; i++) {
+            //add if inventory not full
+            if (this.addItem(mapItems[indices[i] - added])) {
+                mapItems.splice(indices[i] - added, 1);
+                added++;
+            } else {
+                //inventory is full
+                break;
+            }
+        }
+        //update map items
+        this._map.setItemsAt(this.getX(), this.getY(), this.getZ(), mapItems);
+        return added === indices.length;
+    },
+    dropItem: function(i) {
+        //drops item on current map tile
+        if (this._items[i]) {
+            if (this._map) {
+                this._map.addItem(this.getX(), this.getY(), this.getZ(), this._items[i]);
+            }
+            this.removeItem(i);
+        }
+    }
+};
+
 // Player template
 Game.PlayerTemplate = {
     character: '@',
@@ -200,17 +248,38 @@ Game.PlayerTemplate = {
     maxHp: 40,
     attackValue: 10,
     sightRadius: 6,
-    mixins: [Game.Mixins.Moveable, Game.Mixins.PlayerActor,
+    inventorySlots: 10,
+    mixins: [Game.Mixins.PlayerActor,
         Game.Mixins.Attacker, Game.Mixins.Destructible,
-        Game.Mixins.Sight, Game.Mixins.MessageRecipient
+        Game.Mixins.Sight, Game.Mixins.MessageRecipient, Game.Mixins.InventoryHolder
     ]
 };
 
+Game.EntityRepository = new Game.Repository('entities', Game.Entity);
+
 //Python template
-Game.PythonTemplate = {
+Game.EntityRepository.define('python', {
     name: 'python',
     character: 'P',
     foreground: 'green',
     maxHp: 10,
     mixins: [Game.Mixins.PythonActor, Game.Mixins.Destructible]
-};
+});
+
+Game.EntityRepository.define('orc', {
+    name: 'orc',
+    character: 'O',
+    foreground: 'white',
+    maxHp: '50',
+    attackValue: '20',
+    mixins: [Game.Mixins.WanderActor, Game.Mixins.Attacker, Game.Mixins.Destructible]
+});
+
+Game.EntityRepository.define('dragon', {
+    name: 'dragon',
+    character: 'D',
+    foreground: 'yellow',
+    maxHp: '150',
+    attackValue: '75',
+    mixins: [Game.Mixins.WanderActor, Game.Mixins.Attacker, Game.Mixins.Destructible]
+});
